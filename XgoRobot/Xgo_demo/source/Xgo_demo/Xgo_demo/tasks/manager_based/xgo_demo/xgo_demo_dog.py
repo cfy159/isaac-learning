@@ -21,7 +21,7 @@ from isaaclab.utils.noise import AdditiveUniformNoiseCfg as Unoise
 import isaaclab_tasks.manager_based.locomotion.velocity.mdp as mdp
 
 
-from xgo_demo.assets.robots.xgo import XGO_CFG
+from Xgo_demo.assets.xgo import XGO_CFG
 
 @configclass
 class XgoDemoSceneCfg(InteractiveSceneCfg):
@@ -126,7 +126,14 @@ class ObservationsCfg:
 class ActionsCfg:
     """Action specifications for the MDP."""
 
-    joint_pos = mdp.JointPositionActionCfg(asset_name="robot", joint_names=[".*"], scale=0.5, use_default_offset=True)
+    # 只控制 12 个腿关节（fl/fr/bl/br × hip/thigh/calf），
+    # 排除 arm_* 和 hand_*，否则未训练的策略会发出随机指令让机械臂/手爪乱动。
+    joint_pos = mdp.JointPositionActionCfg(
+        asset_name="robot",
+        joint_names=["(fl|fr|bl|br)_(hip|thigh|calf)_joint"],
+        scale=0.5,
+        use_default_offset=True,
+    )
 
 @configclass
 class CommandsCfg:
