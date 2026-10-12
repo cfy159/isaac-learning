@@ -18,8 +18,7 @@ from isaaclab.utils import configclass
 from isaaclab.utils.assets import ISAAC_NUCLEUS_DIR, ISAACLAB_NUCLEUS_DIR
 from isaaclab.utils.noise import AdditiveUniformNoiseCfg as Unoise
 
-import isaaclab_tasks.manager_based.locomotion.velocity.mdp as mdp
-
+import Xgo_demo.tasks.manager_based.xgo_demo.mdp as mdp
 
 from Xgo_demo.assets.xgo import XGO_CFG
 
@@ -157,11 +156,41 @@ class RewardsCfg:
     """Reward terms for the MDP."""
 
     # -- task
-    track_lin_vel_xy_exp = RewTerm(
+    track_lin_vel_xy = RewTerm(
         func=mdp.track_lin_vel_xy_exp, weight=1.0, params={"command_name": "base_velocity", "std": math.sqrt(0.25)}
     )
-    track_ang_vel_z_exp = RewTerm(
+    track_ang_vel_z = RewTerm(
         func=mdp.track_ang_vel_z_exp, weight=0.5, params={"command_name": "base_velocity", "std": math.sqrt(0.25)}
+    )
+    base_linear_velocity = RewTerm(func=mdp.lin_vel_z_l2, weight=-0.05)
+    base_angular_velocity = RewTerm(func=mdp.ang_vel_xy_l2, weight=-0.001)
+    flat_orientation_l2 = RewTerm(func=mdp.flat_orientation_l2, weight=-5.0)
+    # 惩罚关节输出力矩过大
+    joint_torques = RewTerm(func=mdp.joint_torques_l2, weight=-1e-4)
+    # 惩罚关节速度
+    joint_vel = RewTerm(func=mdp.joint_vel_l2, weight=-1e-4)
+    # 惩罚关节加速度
+    joint_acc = RewTerm(func=mdp.joint_acc_l2, weight=-2.5e-7)
+    # 惩罚相邻时刻动作变化过大
+    action_rate = RewTerm(func=mdp.action_rate_l2, weight=-6.25e-3)
+    feet_slip = RewTerm(
+        func=mdp.feet_slip,
+        weight=-0.1,
+        params={
+            "asset_cfg": SceneEntityCfg("robot", body_names=".*_foot"),
+            "sensor_cfg": SceneEntityCfg("contact_forces", body_names=".*_foot"),
+        }
+    )
+    energy_new_actual = RewTerm(func=mdp.energy_new_actual, weight=1.0)
+    dof_pos_limits = RewTerm(func=mdp.joint_pos_limits, weight=-10.0)
+    # 身体碰地面
+    undesired_contact = RewTerm(
+        func=mdp.undesired_contact,
+        weight=-5.0,
+        params={
+            "threshold": 1.0,
+            "sensor_cfg": SceneEntityCfg("contact_forces", body_names="base"),
+        }
     )
 
 @configclass
