@@ -6,28 +6,30 @@ from isaaclab.envs import ManagerBasedRLEnv
 from isaaclab.managers import CommandManager, CurriculumManager, RewardManager, TerminationManager
 
 class AERRewardManager(RewardManager):
-    positive_terms = {"energy_new_actual", "track_lin_vel_xy", "track_ang_vel_z"}
+    positive_terms = {"track_lin_vel_xy", "track_ang_vel_z"}
+    energy_term = "energy_new_actual"      # 作为乘子，不是白拿的正奖励
     sigma_aux = 0.2
 
-    def compute(self, dt: float) -> torch.Tensor:
+    def compute(self, dt):
         self._reward_buf[:] = 0.0
         positive_reward = torch.zeros_like(self._reward_buf)
         negative_reward = torch.zeros_like(self._reward_buf)
+        energy_reward = torch.ones_like(self._reward_buf)
         for term_idx, (name, term_cfg) in enumerate(zip(self._term_names, self._term_cfgs)):
             if term_cfg.weight == 0.0:
                 self._step_reward[:, term_idx] = 0.0
                 continue
-
             value = term_cfg.func(self._env, **term_cfg.params) * term_cfg.weight
             self._step_reward[:, term_idx] = value
-
-            if name in self.positive_terms:
+            if name == self.energy_term:
+                energy_reward = value
+            elif name in self.positive_terms:
                 positive_reward += value
             else:
                 negative_reward += value
-
-        self._reward_buf[:] = positive_reward * torch.exp(negative_reward / self.sigma_aux) * dt
+        self._reward_buf[:] = positive_reward * energy_reward * torch.exp(negative_reward / self.sigma_aux) * dt
         return self._reward_buf
+
 
 class AERManagerBasedRLEnv(ManagerBasedRLEnv):
     def load_managers(self):

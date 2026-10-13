@@ -26,24 +26,16 @@ def joint_pos_target_l2(env: ManagerBasedRLEnv, target: float, asset_cfg: SceneE
     return torch.sum(torch.square(joint_pos - target), dim=1)
 
 def energy_new_actual(env, asset_cfg=SceneEntityCfg("robot"), sigma_lin=1000.0, sigma_ang=500.0, clip_lin=0.2, clip_ang=0.2):
-    """" 能量奖励函数 """
     asset = env.scene[asset_cfg.name]
-    # 关节速度
-    joint_vel = asset.data.joint_vel
-    # 力矩
-    joint_torque = asset.data.applied_torque
-
-    energy = torch.sum(torch.abs(joint_vel * joint_torque), dim=1)
-    base_lin_vel_x = asset.data.root_lin_vel_b[:, 0]
-    base_ang_vel_z = asset.data.root_ang_vel_b[:, 2]
-
+    energy = torch.sum(torch.abs(asset.data.joint_vel * asset.data.applied_torque), dim=1)
+    command = env.command_manager.get_command("base_velocity")   # (num_envs, 3)
+    vx_cmd, wz_cmd = command[:, 0], command[:, 2]
     denom = (
-        sigma_lin * torch.clamp(torch.abs(base_lin_vel_x), max=clip_lin)
-        + sigma_ang * torch.clamp(torch.abs(base_ang_vel_z), max=clip_ang)
-
+        sigma_lin * torch.clamp(torch.abs(vx_cmd), min=0.1, max=clip_lin)
+        + sigma_ang * torch.clamp(torch.abs(wz_cmd), min=0.1, max=clip_ang)
     )
-    # 返回能量奖励
     return torch.exp(-energy / denom)
+
 
 def feet_slip(env, sensor_cfg, asset_cfg=SceneEntityCfg("robot")):
     """" 脚底打滑惩罚 """

@@ -170,7 +170,7 @@ class RewardsCfg:
     )
     base_linear_velocity = RewTerm(func=mdp.lin_vel_z_l2, weight=-0.05)
     base_angular_velocity = RewTerm(func=mdp.ang_vel_xy_l2, weight=-0.001)
-    flat_orientation_l2 = RewTerm(func=mdp.flat_orientation_l2, weight=-5.0)
+    flat_orientation_l2 = RewTerm(func=mdp.flat_orientation_l2, weight=-1.0)
     # 惩罚关节输出力矩过大
     joint_torques = RewTerm(func=mdp.joint_torques_l2, weight=-1e-4)
     # 惩罚关节速度
@@ -190,11 +190,11 @@ class RewardsCfg:
         }
     )
     energy_new_actual = RewTerm(func=mdp.energy_new_actual, weight=1.0)
-    dof_pos_limits = RewTerm(func=mdp.joint_pos_limits, weight=-10.0)
+    dof_pos_limits = RewTerm(func=mdp.joint_pos_limits, weight=-1.0)
     # 身体碰地面
     undesired_contacts = RewTerm(
         func=mdp.undesired_contacts,
-        weight=-5.0,
+        weight=-1.0,
         params={
             "threshold": 1.0,
             "sensor_cfg": SceneEntityCfg("contact_forces", body_names="base"),
