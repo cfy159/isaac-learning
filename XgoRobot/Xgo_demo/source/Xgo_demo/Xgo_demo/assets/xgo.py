@@ -142,7 +142,9 @@ XGO_CFG = ArticulationCfg(
 XGO_USD_CFG = XGO_CFG.replace(
     spawn=sim_utils.UsdFileCfg(
         usd_path=f"{XGO_MODEL_DIR}/usd/xgo.usd",  # USD 文件路径（由方式一首次运行时自动生成）
-        fix_base=False,                            # 不固定基座，自由移动（floating base）
+        # 注意：UsdFileCfg 直接加载 USD，没有 fix_base 参数（该参数只在
+        # UrdfFileCfg 等 converter 里，用于 URDF→USD 转换时生成固定关节）。
+        # 基座是否浮动由 USD 文件本身决定：root link 无父关节即为 floating base。
         activate_contact_sensors=True,             # 启用接触传感器（illegal_contact 等终止项需要）
         # 刚体物理属性
         rigid_props=sim_utils.RigidBodyPropertiesCfg(

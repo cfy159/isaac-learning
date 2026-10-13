@@ -19,8 +19,7 @@ from isaaclab.utils.assets import ISAAC_NUCLEUS_DIR, ISAACLAB_NUCLEUS_DIR
 from isaaclab.utils.noise import AdditiveUniformNoiseCfg as Unoise
 
 import Xgo_demo.tasks.manager_based.xgo_demo.mdp as mdp
-
-from Xgo_demo.assets.xgo import XGO_CFG
+from Xgo_demo.assets.xgo import XGO_CFG as Robot_CFG
 
 @configclass
 class XgoDemoSceneCfg(InteractiveSceneCfg):
@@ -38,7 +37,7 @@ class XgoDemoSceneCfg(InteractiveSceneCfg):
         ),
         debug_vis=False,
     )
-    robot: ArticulationCfg = XGO_CFG.replace(prim_path="{ENV_REGEX_NS}/Robot")
+    robot: ArticulationCfg = Robot_CFG.replace(prim_path="{ENV_REGEX_NS}/Robot")
 
     # 高度传感器
     height_scanner = RayCasterCfg(
@@ -138,7 +137,9 @@ class ActionsCfg:
 class CommandsCfg:
     """Command specifications for the MDP."""
 
-    base_velocity = mdp.UniformVelocityCommandCfg(
+    # 用自定义的 UniformLevelVelocityCommandCfg（比基类多一个 limit_ranges），
+    # 课程学习 lin_vel_cmd_levels 需要读 cfg.limit_ranges 来决定命令范围扩展的硬上限。
+    base_velocity = mdp.UniformLevelVelocityCommandCfg(
         asset_name="robot",
         resampling_time_range=(10.0, 10.0),
         rel_standing_envs=0.02,
@@ -146,8 +147,13 @@ class CommandsCfg:
         heading_command=True,
         heading_control_stiffness=0.5,
         debug_vis=True,
-        ranges=mdp.UniformVelocityCommandCfg.Ranges(
+        ranges=mdp.UniformLevelVelocityCommandCfg.Ranges(
             lin_vel_x=(-1.0, 1.0), lin_vel_y=(-1.0, 1.0), ang_vel_z=(-1.0, 1.0), heading=(-math.pi, math.pi)
+        ),
+        # 命令范围的硬上限：奖励达标后 ranges 会向外扩展，但不会超过这个值。
+        # 应根据机器人实际能跑到的最大线速度/角速度来设（XGO 电机仅 0.45 N·m，先与初始范围一致，之后再调）。
+        limit_ranges=mdp.UniformLevelVelocityCommandCfg.Ranges(
+            lin_vel_x=(-1.0, 1.0), lin_vel_y=(-1.0, 1.0), ang_vel_z=(-1.0, 1.0)
         ),
     )
 
@@ -173,19 +179,21 @@ class RewardsCfg:
     joint_acc = RewTerm(func=mdp.joint_acc_l2, weight=-2.5e-7)
     # 惩罚相邻时刻动作变化过大
     action_rate = RewTerm(func=mdp.action_rate_l2, weight=-6.25e-3)
+    # 注意：URDF 里 foot 通过 fixed 关节连在 calf 上，转 USD 时 fixed 关节被合并，
+    # foot 几何并入 calf 刚体，因此 articulation 中没有 *_foot body，只有 *_calf。
     feet_slip = RewTerm(
         func=mdp.feet_slip,
         weight=-0.1,
         params={
-            "asset_cfg": SceneEntityCfg("robot", body_names=".*_foot"),
-            "sensor_cfg": SceneEntityCfg("contact_forces", body_names=".*_foot"),
+            "asset_cfg": SceneEntityCfg("robot", body_names=".*_calf"),
+            "sensor_cfg": SceneEntityCfg("contact_forces", body_names=".*_calf"),
         }
     )
     energy_new_actual = RewTerm(func=mdp.energy_new_actual, weight=1.0)
     dof_pos_limits = RewTerm(func=mdp.joint_pos_limits, weight=-10.0)
     # 身体碰地面
-    undesired_contact = RewTerm(
-        func=mdp.undesired_contact,
+    undesired_contacts = RewTerm(
+        func=mdp.undesired_contacts,
         weight=-5.0,
         params={
             "threshold": 1.0,
@@ -223,6 +231,11 @@ class EventCfg:
         },
     )
 
+@configclass
+class CurriculumCfg:
+    lin_vel_cmd_levels = CurrTerm(
+        func=mdp.lin_vel_cmd_levels
+    )
 
 @configclass
 class XgoDemoDogEnvCfg(ManagerBasedRLEnvCfg):
@@ -238,7 +251,7 @@ class XgoDemoDogEnvCfg(ManagerBasedRLEnvCfg):
     rewards: RewardsCfg = RewardsCfg()
     terminations: TerminationsCfg = TerminationsCfg()
     events: EventCfg = EventCfg()
-    # curriculum: CurriculumCfg = CurriculumCfg()
+    curriculum: CurriculumCfg = CurriculumCfg()
 
     def __post_init__(self):
         """Post initialization."""
