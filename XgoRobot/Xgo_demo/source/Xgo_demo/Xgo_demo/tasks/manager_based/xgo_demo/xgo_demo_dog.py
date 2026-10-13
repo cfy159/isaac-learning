@@ -120,6 +120,48 @@ class ObservationsCfg:
     # observation groups
     critical: CriticalCfg = CriticalCfg()
 
+    @configclass
+    class StudentCfg(ObsGroup):
+        """Deployable observations used by the recurrent student policy."""
+
+        base_ang_vel = ObsTerm(
+            func=mdp.base_ang_vel,
+            scale=0.2,
+            clip=(-100, 100),
+            noise=Unoise(n_min=-0.2, n_max=0.2),   # 行首 "nois" 被贴纸遮挡
+        )
+        projected_gravity = ObsTerm(
+            func=mdp.projected_gravity,
+            clip=(-100, 100),
+            noise=Unoise(n_min=-0.05, n_max=0.05),
+        )
+        velocity_commands = ObsTerm(
+            func=mdp.generated_commands,
+            clip=(-100, 100),
+            params={"command_name": "base_velocity"},
+        )
+        joint_pos_rel = ObsTerm(
+            func=mdp.joint_pos_rel,
+            clip=(-100, 100),
+            noise=Unoise(n_min=-0.01, n_max=0.01),
+        )
+        joint_vel_rel = ObsTerm(
+            func=mdp.joint_vel_rel,
+            scale=0.05,
+            clip=(-100, 100),
+            noise=Unoise(n_min=-1.5, n_max=1.5),
+        )
+        joint_effort = ObsTerm(func=mdp.joint_effort, scale=0.01, clip=(-100, 100))
+        last_action = ObsTerm(func=mdp.last_action, clip=(-100, 100))
+
+        def __post_init__(self):
+            self.enable_corruption = True
+            self.concatenate_terms = True
+
+
+    student: StudentCfg = StudentCfg()
+
+
 @configclass
 class ActionsCfg:
     """Action specifications for the MDP."""
