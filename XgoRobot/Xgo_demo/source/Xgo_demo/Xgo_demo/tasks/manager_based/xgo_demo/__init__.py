@@ -41,3 +41,13 @@ gym.register(
         "rsl_rl_cfg_entry_point": f"{agents.__name__}.rsl_rl_ppo_cfg:DistillationRunnerCfg",
     },
 )
+
+gym.register(
+    id="Xgo-Dog-StudentFinetune-v0",
+    entry_point=f"{__name__}.aer_env:AERManagerBasedRLEnv",
+    disable_env_checker=True,
+    kwargs={
+        "env_cfg_entry_point": f"{__name__}.xgo_demo_dog:XgoDemoDogEnvCfg",
+        "rsl_rl_cfg_entry_point": f"{agents.__name__}.rsl_rl_ppo_cfg:StudentFinetuneRunnerCfg",
+    },
+)
